@@ -1,13 +1,19 @@
 from __future__ import unicode_literals
 
+from django.conf import settings
 from django.core.urlresolvers import reverse
 from django.db import models
 from django.db.models.signals import pre_save
+from django.utils import timezone
 
 from django.utils.text import slugify
 
 # Create your models here.
 # MVC MODEL VIEW CONTROLLER
+
+class PostManager(models.Manager):
+    def active(self, *args, **kwargs):
+        return super(PostManager, self).filter(draft=False).filter(publish__lte=timezone.now())
 
 def upload_location(instance, filename):
     # filebase, extension = filename.split(".")
@@ -15,6 +21,7 @@ def upload_location(instance, filename):
     return "%s/%s" %(instance.slug, filename)
 
 class Post(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, default=1)
     title = models.CharField(max_length=120)
     slug = models.SlugField(unique=True)
     image = models.ImageField(upload_to=upload_location,
@@ -25,8 +32,12 @@ class Post(models.Model):
     height_field = models.IntegerField(default=0)
     width_field = models.IntegerField(default=0)
     content = models.TextField()
+    draft = models.BooleanField(default=False)
+    publish = models.DateField(auto_now=False, auto_now_add=False)
     updated = models.DateTimeField(auto_now=True, auto_now_add=False)
     timestamp = models.DateTimeField(auto_now=False, auto_now_add=True)
+
+    objects = PostManager()
 
     def __unicode__(self):
         return self.title
@@ -39,6 +50,7 @@ class Post(models.Model):
 
     class Meta:
         ordering = ["-timestamp", "-updated"] #if two objects are created at the same time, order by updated
+
 
 def create_slug(instance, new_slug=None):
     slug = slugify(instance.title)
